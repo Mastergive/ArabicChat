@@ -9,7 +9,7 @@
  *            and drawn by this plugin with the system font (a small overlay under the stock chat).
  *   BOTH players need this plugin, and the server must pass bytes >= 0x80 through unchanged.
  *
- * Build: see README.md.  Written against ClassiCube 1.3.8 headers (plugin API version 1).
+ * Platforms: Windows (GDI) and Linux (FreeType + fontconfig). Build: see README.md.  Written against ClassiCube 1.3.8 headers (plugin API version 1).
  */
 #ifdef _WIN32
 	#define CC_API   __declspec(dllimport)
@@ -36,8 +36,9 @@
 #include <string.h>
 
 #include "arabic_core.h"
-#ifdef _WIN32
-	#include "gdi_text.h"
+#if defined(_WIN32) || defined(__linux__)
+	#define AC_HAVE_TEXT 1
+	#include "sys_text.h"   /* gdi_text.c (Windows) or ft_text.c (Linux) */
 #endif
 
 /* ---- tweakables ---------------------------------------------------------------------- */
@@ -70,7 +71,11 @@ static int FontPx(void)  { return Options_GetInt("arabicchat-size", 8, 72, 20); 
 static void FontFace(char* dst, int cap) {
 	cc_string opt; char buf[64]; int n;
 	opt = String_Init(buf, 0, 64);
+	#ifdef _WIN32
 	Options_Get("arabicchat-font", &opt, "Segoe UI");
+#else
+	Options_Get("arabicchat-font", &opt, "sans-serif");
+#endif
 	n = opt.length < cap - 1 ? opt.length : cap - 1;
 	memcpy(dst, opt.buffer, n); dst[n] = '\0';
 }
@@ -82,7 +87,7 @@ static void FreeTex(struct Texture* t) {
 
 /* Builds a texture for logical text. barW > 0 draws a dark input bar of that width behind it. */
 static cc_bool BuildTexture(struct Texture* tex, const uint32_t* logical, int n, int barW, cc_bool rtl) {
-#ifdef _WIN32
+#ifdef AC_HAVE_TEXT
 	uint32_t vis[AC_MAX_CP + 4]; uint16_t u16[AC_MAX_CP + 4];
 	unsigned char* mask; int w, h, m, i, x, y, tw, th, ox, oy;
 	char face[64]; struct Context2D ctx;
@@ -91,7 +96,7 @@ static cc_bool BuildTexture(struct Texture* tex, const uint32_t* logical, int n,
 	if (m <= 0) return false;
 	for (i = 0; i < m; i++) u16[i] = vis[i] > 0xFFFF ? '?' : (uint16_t)vis[i];
 	FontFace(face, sizeof(face));
-	if (!gdi_render_mask(u16, m, face, FontPx(), &mask, &tw, &th)) return false;
+	if (!sys_render_mask(u16, m, face, FontPx(), &mask, &tw, &th)) return false;
 
 	w = barW > 0 ? (barW > tw + 16 ? barW : tw + 16) : tw + 1;
 	h = barW > 0 ? th + 8 : th + 1;
@@ -108,13 +113,13 @@ static cc_bool BuildTexture(struct Texture* tex, const uint32_t* logical, int n,
 		else if (barW > 0)            ctx.bmp.scan0[y * ctx.bmp.width + x] = BitmapCol_Make(0, 0, 0, 150);
 		else                          ctx.bmp.scan0[y * ctx.bmp.width + x] = BitmapCol_Make(0, 0, 0, 0);
 	}
-	gdi_free_mask(mask);
+	sys_free_mask(mask);
 	Context2D_MakeTexture(tex, &ctx);
 	Context2D_Free(&ctx);
 	return true;
 #else
 	(void)tex; (void)logical; (void)n; (void)barW; (void)rtl;
-	return false; /* TODO: Linux/macOS backend (FreeType/Pango/CoreText) */
+	return false; /* TODO: macOS backend (CoreText) */
 #endif
 }
 

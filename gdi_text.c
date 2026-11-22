@@ -2,15 +2,15 @@
 #include <windows.h>
 #include <stdlib.h>
 #include <string.h>
-#include "gdi_text.h"
+#include "sys_text.h"
 
 #ifndef GGI_MARK_NONEXISTING_GLYPHS
 #define GGI_MARK_NONEXISTING_GLYPHS 0x0001
 #endif
 
-void gdi_free_mask(unsigned char* mask) { free(mask); }
+void sys_free_mask(unsigned char* mask) { free(mask); }
 
-int gdi_render_mask(const uint16_t* text, int n, const char* face, int px,
+int sys_render_mask(const uint16_t* text, int n, const char* face, int px,
                     unsigned char** mask, int* outW, int* outH) {
 	wchar_t wface[64];
 	HDC dc; HFONT font, oldFont; HBITMAP bmp, oldBmp;
