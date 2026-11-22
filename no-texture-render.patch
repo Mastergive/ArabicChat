@@ -1,5 +1,5 @@
 --- /tmp/orig.c	2026-11-22 13:07:35.322650112 +0000
-+++ ArabicChat.c	2026-11-22 13:07:33.245091543 +0000
++++ ArabicChat.c	2026-11-22 13:10:59.703140961 +0000
 @@ -149,7 +149,43 @@
  }
  
@@ -33,10 +33,10 @@
 +	Gfx_SetVertexFormat(VERTEX_FORMAT_TEXTURED);
 +
 +	v = (struct VertexTextured*)Gfx_LockDynamicVb(quadVb, VERTEX_FORMAT_TEXTURED, 4);
-+	v[0].x = x1; v[0].y = y1; v[0].z = 0; v[0].Col = PACKEDCOL_WHITE; v[0].U = t->uv.U1; v[0].V = t->uv.V1;
-+	v[1].x = x2; v[1].y = y1; v[1].z = 0; v[1].Col = PACKEDCOL_WHITE; v[1].U = t->uv.U2; v[1].V = t->uv.V1;
-+	v[2].x = x2; v[2].y = y2; v[2].z = 0; v[2].Col = PACKEDCOL_WHITE; v[2].U = t->uv.U2; v[2].V = t->uv.V2;
-+	v[3].x = x1; v[3].y = y2; v[3].z = 0; v[3].Col = PACKEDCOL_WHITE; v[3].U = t->uv.U1; v[3].V = t->uv.V2;
++	v[0].x = x1; v[0].y = y1; v[0].z = 0; v[0].Col = PACKEDCOL_WHITE; v[0].U = t->uv.u1; v[0].V = t->uv.v1;
++	v[1].x = x2; v[1].y = y1; v[1].z = 0; v[1].Col = PACKEDCOL_WHITE; v[1].U = t->uv.u2; v[1].V = t->uv.v1;
++	v[2].x = x2; v[2].y = y2; v[2].z = 0; v[2].Col = PACKEDCOL_WHITE; v[2].U = t->uv.u2; v[2].V = t->uv.v2;
++	v[3].x = x1; v[3].y = y2; v[3].z = 0; v[3].Col = PACKEDCOL_WHITE; v[3].U = t->uv.u1; v[3].V = t->uv.v2;
 +	Gfx_UnlockDynamicVb(quadVb);
 +
 +	Gfx_BindIb(Gfx.DefaultIb);          /* the client's shared 0,1,2 / 0,2,3 quad index buffer */
