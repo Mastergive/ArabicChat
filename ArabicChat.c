@@ -28,6 +28,7 @@
 #include "src/Drawer2D.h"
 #include "src/Event.h"
 #include "src/Game.h"
+#include "src/Graphics.h"
 #include "src/Gui.h"
 #include "src/Input.h"
 #include "src/Options.h"
@@ -63,18 +64,22 @@
 static uint32_t inBuf[AC_MAX_CP];
 static int      inLen;
 static cc_bool  typing, inDirty;
-static TimeMS   openedAt;
+static cc_uint64 openedAt;
 static int      caretOn;
 static double   caretTimer;
 static struct Texture inTex;
 
-struct Line { uint32_t cp[AC_MAX_CP]; int n; TimeMS at; struct Texture tex; cc_bool built; };
+struct Line { uint32_t cp[AC_MAX_CP]; int n; cc_uint64 at; struct Texture tex; cc_bool built; };
 static struct Line lines[AC_LINES];
 static int lineHead;     /* index of next slot to write */
 static cc_bool hudAdded;
 
 static struct Screen hudScreen, inScreen;
 static struct ScreenVTABLE hudVT, inVT;
+
+/* timing via the monotonic stopwatch (independent of DateTime_* API changes) */
+static cc_uint64 NowTicks(void) { return Stopwatch_Measure(); }
+static int ElapsedMs(cc_uint64 since) { return (int)(Stopwatch_ElapsedMicroseconds(since, Stopwatch_Measure()) / 1000); }
 
 /* ---- text -> texture ------------------------------------------------------------------ */
 static int FontPx(void)  { return Options_GetInt("arabicchat-size", 8, 72, 20); }
@@ -148,12 +153,11 @@ static void DrawTex(struct Texture* t, int x, int y) { t->x = (short)x; t->y = (
 
 static void Hud_Render(void* s, float delta) {
 	int i, k, y, x = Options_GetInt("arabicchat-x", 0, 4000, 10);
-	TimeMS now = DateTime_CurrentUTC_MS();
 	y = Options_GetInt("arabicchat-y", 0, 4000, 140);
 	(void)s; (void)delta;
 	for (k = 0; k < AC_LINES; k++) {
 		i = (lineHead + k) % AC_LINES;               /* oldest first */
-		if (lines[i].n == 0 || now - lines[i].at > AC_SHOW_MS) continue;
+		if (lines[i].n == 0 || ElapsedMs(lines[i].at) > AC_SHOW_MS) continue;
 		if (!lines[i].built) lines[i].built = BuildTexture(&lines[i].tex, lines[i].cp, lines[i].n, 0, false);
 		if (!lines[i].built) continue;
 		DrawTex(&lines[i].tex, x, y);
@@ -217,7 +221,7 @@ static int In_KeyDown(void* s, int key, void* dev) {
 	(void)s; (void)dev;
 	if (key == CCKEY_ESCAPE) { CloseInput(); return 1; }
 	if (key == CCKEY_ENTER || key == CCKEY_KP_ENTER) {
-		if (DateTime_CurrentUTC_MS() - openedAt < 300) return 1; /* the Enter that ran the command */
+		if (ElapsedMs(openedAt) < 300) return 1; /* the Enter that ran the command */
 		if (inLen > 0) SendInput();
 		CloseInput();
 		return 1;
@@ -229,7 +233,7 @@ static int In_KeyDown(void* s, int key, void* dev) {
 /* Raw Unicode keystrokes: raised by the window layer before the CP437 conversion. */
 static void OnRawPress(void* obj, int cp) {
 	(void)obj;
-	if (!typing || DateTime_CurrentUTC_MS() - openedAt < 50) return;
+	if (!typing || ElapsedMs(openedAt) < 50) return;
 	if (cp < 32 || cp == 127 || inLen >= AC_MAX_CP - 1) return;
 	inBuf[inLen++] = (uint32_t)cp;
 	inDirty = true;
@@ -238,7 +242,7 @@ static void OnRawPress(void* obj, int cp) {
 static void OpenInput(void) {
 	if (typing) return;
 	inLen = 0; typing = true; inDirty = true; caretOn = 1; caretTimer = 0;
-	openedAt = DateTime_CurrentUTC_MS();
+	openedAt = NowTicks();
 	Gui_Add(&inScreen, AC_PRIO_INPUT);
 }
 static void CloseInput(void) {
@@ -263,7 +267,7 @@ static void OnChat(void* obj, const cc_string* msg, int msgType) {
 	L = &lines[lineHead];
 	FreeTex(&L->tex); L->built = false;
 	L->n  = ac_utf8_decode_lenient(raw, rn, L->cp, AC_MAX_CP);
-	L->at = DateTime_CurrentUTC_MS();
+	L->at = NowTicks();
 	lineHead = (lineHead + 1) % AC_LINES;
 }
 
