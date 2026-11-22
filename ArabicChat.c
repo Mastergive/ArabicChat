@@ -32,7 +32,17 @@
 #include "src/Input.h"
 #include "src/Options.h"
 #include "src/Platform.h"
-#include "src/String.h"
+#if defined(__has_include)
+	#if __has_include("src/String_.h")
+		#include "src/String_.h"    /* current ClassiCube sources */
+	#elif __has_include("src/Strings.h")
+		#include "src/Strings.h"
+	#else
+		#include "src/String.h"
+	#endif
+#else
+	#include "src/String_.h"
+#endif
 #include <string.h>
 
 #include "arabic_core.h"
