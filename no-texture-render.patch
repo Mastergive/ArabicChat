@@ -1,0 +1,68 @@
+--- /tmp/orig.c	2026-11-22 13:07:35.322650112 +0000
++++ ArabicChat.c	2026-11-22 13:07:33.245091543 +0000
+@@ -149,7 +149,43 @@
+ }
+ 
+ /* ---- drawing -------------------------------------------------------------------------- */
+-static void DrawTex(struct Texture* t, int x, int y) { t->x = (short)x; t->y = (short)y; Texture_Render(t); }
++/* Texture_Render / Gfx_Draw2DTexture are NOT exported by the client binary, so plugins can't link
++ * against them. Instead we draw the quad ourselves with a private dynamic VB, using only exported
++ * Gfx_* functions (Gfx_CreateDynamicVb, Gfx_LockDynamicVb, Gfx_BindIb, Gfx_SetVertexFormat, ...). */
++static GfxResourceID quadVb;
++
++static void FreeQuadVb(void) {
++	if (quadVb) Gfx_DeleteDynamicVb(&quadVb);
++	quadVb = 0;
++}
++
++static void DrawTex(struct Texture* t, int x, int y) {
++	struct VertexTextured* v;
++	float x1, y1, x2, y2;
++
++	t->x = (short)x; t->y = (short)y;
++	if (!t->ID) return;
++	if (!quadVb) {                      /* created lazily; freed again on context loss */
++		quadVb = Gfx_CreateDynamicVb(VERTEX_FORMAT_TEXTURED, 4);
++		if (!quadVb) return;
++	}
++
++	x1 = (float)t->x;               y1 = (float)t->y;
++	x2 = (float)(t->x + t->width);  y2 = (float)(t->y + t->height);
++
++	Gfx_BindTexture(t->ID);
++	Gfx_SetVertexFormat(VERTEX_FORMAT_TEXTURED);
++
++	v = (struct VertexTextured*)Gfx_LockDynamicVb(quadVb, VERTEX_FORMAT_TEXTURED, 4);
++	v[0].x = x1; v[0].y = y1; v[0].z = 0; v[0].Col = PACKEDCOL_WHITE; v[0].U = t->uv.U1; v[0].V = t->uv.V1;
++	v[1].x = x2; v[1].y = y1; v[1].z = 0; v[1].Col = PACKEDCOL_WHITE; v[1].U = t->uv.U2; v[1].V = t->uv.V1;
++	v[2].x = x2; v[2].y = y2; v[2].z = 0; v[2].Col = PACKEDCOL_WHITE; v[2].U = t->uv.U2; v[2].V = t->uv.V2;
++	v[3].x = x1; v[3].y = y2; v[3].z = 0; v[3].Col = PACKEDCOL_WHITE; v[3].U = t->uv.U1; v[3].V = t->uv.V2;
++	Gfx_UnlockDynamicVb(quadVb);
++
++	Gfx_BindIb(Gfx.DefaultIb);          /* the client's shared 0,1,2 / 0,2,3 quad index buffer */
++	Gfx_DrawVb_IndexedTris(4);
++}
+ 
+ static void Hud_Render(void* s, float delta) {
+ 	int i, k, y, x = Options_GetInt("arabicchat-x", 0, 4000, 10);
+@@ -198,9 +234,10 @@
+ 
+ static void  Hud_Lost(void* s) {
+ 	int i; (void)s;
++	FreeQuadVb();
+ 	for (i = 0; i < AC_LINES; i++) { FreeTex(&lines[i].tex); lines[i].built = false; }
+ }
+-static void  In_Lost(void* s) { (void)s; FreeTex(&inTex); inDirty = true; }
++static void  In_Lost(void* s) { (void)s; FreeQuadVb(); FreeTex(&inTex); inDirty = true; }
+ 
+ static void CloseInput(void);
+ static void SendInput(void) {
+@@ -301,7 +338,7 @@
+ 	Event_Register((struct Event_Void*)&InputEvents.Press,       NULL, (Event_Void_Callback)OnRawPress);
+ 	Commands_Register(&arabicCmd);
+ }
+-static void Plugin_Free(void) { }
++static void Plugin_Free(void) { FreeQuadVb(); }
+ static void Plugin_Reset(void) {
+ 	int i;
+ 	CloseInput();
